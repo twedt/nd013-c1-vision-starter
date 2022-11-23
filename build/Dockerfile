@@ -72,16 +72,10 @@ RUN apt update -y && \
 
 RUN ln -s $(which python3) /usr/local/bin/python
 
-RUN python -m pip install --upgrade pip && \
-    pip install tensorflow==2.5.0 tf-models-official==2.5.1 tensorflow_io==0.19.1 pyparsing==2.4.2 pycairo
-
 WORKDIR /app
 
 COPY requirements.txt .
 RUN python3 -m pip install -r requirements.txt
-RUN python3 -m pip install git+https://github.com/philferriere/cocoapi.git#subdirectory=PythonAPI
-
-ENV TF_CPP_MIN_LOG_LEVEL=2
 
 RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v3.13.0/protoc-3.13.0-linux-x86_64.zip && \
     unzip protoc-3.13.0-linux-x86_64.zip -d /app/protobuf/
@@ -92,8 +86,5 @@ RUN git clone https://github.com/tensorflow/models.git && \
     cd /app/models/research/ && \
     protoc object_detection/protos/*.proto --python_out=. && \
     cp object_detection/packages/tf2/setup.py . && \
+    sed -i $'8i \t"tensorflow==2.6",' setup.py && \
     python -m pip install .
-
-# Install google cloud SDK
-RUN curl -sSL https://sdk.cloud.google.com > /tmp/gcl && bash /tmp/gcl --install-dir=~/gcloud --disable-prompts
-ENV PATH="$PATH:/root/gcloud/google-cloud-sdk/bin"

@@ -1,4 +1,8 @@
 import logging
+from collections import defaultdict, Counter
+import re
+import numpy as np
+from typing import Tuple
 
 import tensorflow.compat.v1 as tf
 from object_detection.inputs import train_input
@@ -7,6 +11,46 @@ from object_detection.builders.dataset_builder import build as build_dataset
 from object_detection.utils.config_util import get_configs_from_pipeline_file
 from waymo_open_dataset import dataset_pb2 as open_dataset
 
+def get_object_distribution(batch:tf.data.Dataset) -> Tuple[Counter]:
+    """Determines labeled object counts within dataset.
+
+    Returns:
+        Labels and counts.
+    """
+    object_density_dict = defaultdict(dict)
+    object_count = Counter()
+    previous_object_count= Counter()
+    source_id_object_count = Counter()
+    source_id_frame_count = Counter()
+    filename_pattern = '(\S+)_(\w+).tfrecord'
+    for sample in batch:
+        source_id = sample['source_id'].numpy().decode('utf-8')
+        pattern_match = re.search(filename_pattern, source_id)
+        parent_filename = pattern_match.group(1)+'.tfrecord'
+        source_id_frame_count[parent_filename] += 1
+        for idx in range(len(sample['groundtruth_classes'])):
+            object_count[
+                sample['groundtruth_classes'][idx].numpy()
+            ] += 1
+        for key in object_count.keys():
+            if key not in object_density_dict.keys():
+                object_density_dict[key] = Counter()
+            if key in previous_object_count.keys():
+                delta_count = object_count[key] - previous_object_count[key]
+                if delta_count > 0:
+                    object_density_dict[key][delta_count] += 1
+                    source_id_object_count[parent_filename] += delta_count
+            else:
+                object_density_dict[key][object_count[key]] += 1
+                source_id_object_count[parent_filename] += object_count[key]
+        previous_object_count = object_count.copy()
+    retval = (
+        object_density_dict, 
+        object_count, 
+        source_id_object_count,
+        source_id_frame_count,
+    )
+    return retval
 
 def get_dataset(tfrecord_path, label_map='label_map.pbtxt'):
     """
