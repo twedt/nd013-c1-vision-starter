@@ -74,9 +74,6 @@ RUN ln -s $(which python3) /usr/local/bin/python
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN python3 -m pip install -r requirements.txt
-
 RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v3.13.0/protoc-3.13.0-linux-x86_64.zip && \
     unzip protoc-3.13.0-linux-x86_64.zip -d /app/protobuf/
 
@@ -87,4 +84,9 @@ RUN git clone https://github.com/tensorflow/models.git && \
     protoc object_detection/protos/*.proto --python_out=. && \
     cp object_detection/packages/tf2/setup.py . && \
     sed -i $'8i \t"tensorflow==2.6",' setup.py && \
+    sed -i 's/keras/keras==2.6/g' setup.py && \
+    sed -i 's/>=2.5.1/==2.5.1/g' setup.py && \
     python -m pip install .
+
+COPY requirements.txt .
+RUN python3 -m pip install -r requirements.txt
