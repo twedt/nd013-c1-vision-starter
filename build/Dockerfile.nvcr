@@ -1,0 +1,37 @@
+ARG BASE=nvcr.io/nvidia/tensorflow
+ARG TAG=${TAG}
+
+#################################################
+# Base
+#################################################
+FROM ${BASE}:${TAG} AS Base
+
+
+#################################################
+# Build
+#################################################
+FROM base AS build
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN python3 -m pip install -r requirements.txt
+
+RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v3.13.0/protoc-3.13.0-linux-x86_64.zip && \
+    unzip protoc-3.13.0-linux-x86_64.zip -d /app/protobuf/
+
+ENV PATH "$PATH:/app/protobuf/bin"
+
+RUN git clone https://github.com/tensorflow/models.git && \
+    cd /app/models/research/ && \
+    protoc object_detection/protos/*.proto --python_out=. && \
+    cp object_detection/packages/tf2/setup.py . && \
+    sed -i $'8i \t"tensorflow==2.5",' setup.py && \
+    python3 -m pip install .
+
+#################################################
+# Dev
+#################################################
+FROM build AS dev
+
+WORKDIR /app/project
